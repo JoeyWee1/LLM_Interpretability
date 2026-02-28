@@ -35,12 +35,12 @@ model = AutoModelForCausalLM.from_pretrained(
     model_name,
     # FIXED: Use 'torch_dtype', not 'dtype'
     # FIXED: Use float32 for CPU compatibility (or bfloat16 if your CPU is new)
-    torch_dtype=torch.float8, 
+    torch_dtype=torch.float32, 
     device_map="cpu",
     trust_remote_code=True # Often needed for specific/new Qwen versions
 )
 
-messages = [{"role": "user", "content": "Say hello in one short sentence."}]
+messages = [{"role": "user", "content": "Hur mycket är 2+2?"}]
 text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 # Generate inputs
