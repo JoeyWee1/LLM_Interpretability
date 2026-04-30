@@ -33,7 +33,7 @@ graph = attribute(
     verbose=verbose,
 )
 
-graph_dir = "$HOME/rds/graphs"
+graph_dir = "home/rds/graphs"
 graph_name = "dallas.pt"
 graph_dir = Path(graph_dir)
 graph_dir.mkdir(exist_ok=True)
