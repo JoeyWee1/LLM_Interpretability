@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.collections import LineCollection
 
 from circuit_tracer.graph import Graph, prune_graph
 
@@ -145,7 +146,7 @@ def draw_circuit(
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    # --- Edges ---
+    # --- Edges (batched via LineCollection for speed) ---
     adj = graph.adjacency_matrix
     active_edges = edge_mask.nonzero(as_tuple=False)  # shape (E, 2): [dst, src]
 
@@ -153,27 +154,19 @@ def draw_circuit(
         weights = adj[active_edges[:, 0], active_edges[:, 1]]
         max_w = weights.abs().max().item() or 1.0
 
+        segments, colors, linewidths = [], [], []
         for (dst, src), w in zip(active_edges.tolist(), weights.tolist()):
             if src not in positions or dst not in positions:
                 continue
-            x0, y0 = positions[src]
-            x1, y1 = positions[dst]
             alpha = float(np.clip(abs(w) / max_w, 0.08, 0.85))
             lw = float(np.clip(2.5 * abs(w) / max_w, 0.4, 2.5))
-            color = "#2166ac" if w > 0 else "#d6604d"
-            ax.annotate(
-                "",
-                xy=(x1, y1),
-                xytext=(x0, y0),
-                arrowprops=dict(
-                    arrowstyle="->",
-                    color=color,
-                    alpha=alpha,
-                    lw=lw,
-                    connectionstyle="arc3,rad=0.07",
-                ),
-                zorder=1,
-            )
+            rgba = (0.13, 0.40, 0.67, alpha) if w > 0 else (0.84, 0.38, 0.30, alpha)
+            segments.append([positions[src], positions[dst]])
+            colors.append(rgba)
+            linewidths.append(lw)
+
+        if segments:
+            ax.add_collection(LineCollection(segments, colors=colors, linewidths=linewidths, zorder=1))
 
     # --- Nodes ---
     for idx, (x, y) in positions.items():
