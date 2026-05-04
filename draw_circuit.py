@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.collections import LineCollection
+from collections import defaultdict
 
 from circuit_tracer.graph import Graph, prune_graph
 
@@ -141,6 +142,24 @@ def draw_circuit(
         else:
             positions[idx] = (pos, y)
 
+    # Enforce minimum horizontal spacing so nodes never overlap
+    min_dist = 2 * NODE_RADIUS + 0.05
+    by_layer: dict = defaultdict(list)
+    for idx, (x, y) in positions.items():
+        by_layer[y].append(idx)
+    for y, idxs in by_layer.items():
+        idxs.sort(key=lambda i: positions[i][0])
+        for k in range(1, len(idxs)):
+            px = positions[idxs[k - 1]][0]
+            cx = positions[idxs[k]][0]
+            if cx - px < min_dist:
+                positions[idxs[k]] = (px + min_dist, y)
+        for k in range(len(idxs) - 2, -1, -1):
+            nx = positions[idxs[k + 1]][0]
+            cx = positions[idxs[k]][0]
+            if nx - cx < min_dist:
+                positions[idxs[k]] = (nx - min_dist, y)
+
     if figsize is None:
         figsize = (max(8, n_pos * 4), max(5, n_y * 1.3))
 
@@ -217,7 +236,8 @@ def draw_circuit(
         xlabels = [str(i) for i in range(n_pos)]
     ax.set_xticklabels(xlabels, rotation=30, ha="right", fontsize=9)
 
-    ax.set_xlim(-0.7, n_pos - 0.3)
+    all_x = [x for x, y in positions.values()]
+    ax.set_xlim(min(all_x) - 0.7, max(all_x) + 0.7)
     ax.set_ylim(-0.7, n_y - 0.3)
     ax.set_xlabel("Token position")
     ax.grid(True, alpha=0.15, zorder=0)
