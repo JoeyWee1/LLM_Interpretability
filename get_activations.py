@@ -1,3 +1,5 @@
+import os
+
 import torch
 from circuit_tracer import ReplacementModel, attribute
 from pathlib import Path
@@ -13,7 +15,7 @@ model = ReplacementModel.from_pretrained(
     backend=backend,
 )
 
-prompt = "The capital of state containing Dallas is"  # What you want to get the graph for
+prompt = "Fact: The capital of state containing Dallas is"  # What you want to get the graph for
 max_n_logits = 10  # How many logits to attribute from, max. We attribute to min(max_n_logits, n_logits_to_reach_desired_log_prob); see below for the latter
 desired_logit_prob = 0.95  # Attribution will attribute from the minimum number of logits needed to reach this probability mass (or max_n_logits, whichever is lower)
 max_feature_nodes = 8192  # Only attribute from this number of feature nodes, max. Lower is faster, but you will lose more of the graph. None means no limit.
@@ -33,10 +35,12 @@ graph = attribute(
     verbose=verbose,
 )
 
-graph_dir = "home/rds/graphs"
-graph_name = "dallas.pt"
-graph_dir = Path(graph_dir)
-graph_dir.mkdir(exist_ok=True)
-graph_path = graph_dir / graph_name
+# graph_dir = "home/rds/graphs"
+# graph_name = "dallas.pt"
+# graph_dir = Path(graph_dir)
+# graph_dir.mkdir(exist_ok=True)
+# graph_path = graph_dir / graph_name
+# Path(os.environ["HOME"]) / "rds/graphs/example_graph.pt"
 
-graph.to_pt(graph_path)
+# graph.to_pt(graph_path)
+graph.to_pt(Path(os.environ["HOME"]) / "rds/graphs/dallas.pt")

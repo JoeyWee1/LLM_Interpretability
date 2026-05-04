@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.collections import LineCollection
-from collections import defaultdict
 
 from circuit_tracer.graph import Graph, prune_graph
 
@@ -142,24 +141,6 @@ def draw_circuit(
         else:
             positions[idx] = (pos, y)
 
-    # Enforce minimum horizontal spacing so nodes never overlap
-    min_dist = 2 * NODE_RADIUS + 0.05
-    by_layer: dict = defaultdict(list)
-    for idx, (x, y) in positions.items():
-        by_layer[y].append(idx)
-    for y, idxs in by_layer.items():
-        idxs.sort(key=lambda i: positions[i][0])
-        for k in range(1, len(idxs)):
-            px = positions[idxs[k - 1]][0]
-            cx = positions[idxs[k]][0]
-            if cx - px < min_dist:
-                positions[idxs[k]] = (px + min_dist, y)
-        for k in range(len(idxs) - 2, -1, -1):
-            nx = positions[idxs[k + 1]][0]
-            cx = positions[idxs[k]][0]
-            if nx - cx < min_dist:
-                positions[idxs[k]] = (nx - min_dist, y)
-
     if figsize is None:
         figsize = (max(8, n_pos * 4), max(5, n_y * 1.3))
 
@@ -199,14 +180,16 @@ def draw_circuit(
             label = str(extra)
         elif ntype == "token":
             if tokenizer is not None:
-                label = tokenizer.decode(graph.input_tokens[pos].item())
-                label = label.replace(" ", "·")
+                # label = tokenizer.decode(graph.input_tokens[pos].item())
+                label = tokenizer.convert_ids_to_tokens(graph.input_tokens[pos].item()).replace("Ġ", " ").replace("Ċ", "\n")
+                # label = label.replace(" ", "·")
             else:
                 label = f"T{pos}"
         elif ntype == "logit":
             if tokenizer is not None:
-                label = tokenizer.decode(graph.logit_tokens[extra].item())
-                label = label.replace(" ", "·")
+                # label = tokenizer.decode(graph.logit_tokens[extra].item())
+                label = tokenizer.convert_ids_to_tokens(graph.logit_tokens[extra].item()).replace("Ġ", " ").replace("Ċ", "\n")
+                # label = label.replace(" ", "·")
             else:
                 label = f"L{extra}"
         else:
@@ -231,13 +214,13 @@ def draw_circuit(
 
     ax.set_xticks(list(range(n_pos)))
     if tokenizer is not None:
-        xlabels = [tokenizer.decode(t.item()) for t in graph.input_tokens]
+        # xlabels = [tokenizer.decode(t.item()) for t in graph.input_tokens]
+        xlabels = [tokenizer.convert_ids_to_tokens(t.item()).replace("Ġ", " ").replace("Ċ", "\n") for t in graph.input_tokens]
     else:
         xlabels = [str(i) for i in range(n_pos)]
     ax.set_xticklabels(xlabels, rotation=30, ha="right", fontsize=9)
 
-    all_x = [x for x, y in positions.values()]
-    ax.set_xlim(min(all_x) - 0.7, max(all_x) + 0.7)
+    ax.set_xlim(-0.7, n_pos - 0.3)
     ax.set_ylim(-0.7, n_y - 0.3)
     ax.set_xlabel("Token position")
     ax.grid(True, alpha=0.15, zorder=0)
@@ -261,7 +244,7 @@ def draw_circuit(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.savefig(save_path, dpi=100, bbox_inches="tight")
 
     return fig, ax
 
