@@ -141,6 +141,25 @@ def draw_circuit(
         else:
             positions[idx] = (pos, y)
 
+    # Enforce minimum spacing between feature nodes per layer row
+    min_dist = 2 * NODE_RADIUS + 0.05
+    by_layer_feats: dict = {}
+    for idx, (x, y) in positions.items():
+        if node_info[idx][0] == "feature":
+            by_layer_feats.setdefault(y, []).append(idx)
+    for y, idxs in by_layer_feats.items():
+        idxs.sort(key=lambda i: positions[i][0])
+        for k in range(1, len(idxs)):
+            px = positions[idxs[k - 1]][0]
+            cx = positions[idxs[k]][0]
+            if cx - px < min_dist:
+                positions[idxs[k]] = (px + min_dist, y)
+        for k in range(len(idxs) - 2, -1, -1):
+            nx = positions[idxs[k + 1]][0]
+            cx = positions[idxs[k]][0]
+            if nx - cx < min_dist:
+                positions[idxs[k]] = (nx - min_dist, y)
+
     if figsize is None:
         figsize = (max(8, n_pos * 4), max(5, n_y * 1.3))
 
@@ -220,7 +239,8 @@ def draw_circuit(
         xlabels = [str(i) for i in range(n_pos)]
     ax.set_xticklabels(xlabels, rotation=30, ha="right", fontsize=9)
 
-    ax.set_xlim(-0.7, n_pos - 0.3)
+    max_x = max(x for x, y in positions.values())
+    ax.set_xlim(-0.7, max(n_pos - 0.3, max_x + 0.7))
     ax.set_ylim(-0.7, n_y - 0.3)
     ax.set_xlabel("Token position")
     ax.grid(True, alpha=0.15, zorder=0)
