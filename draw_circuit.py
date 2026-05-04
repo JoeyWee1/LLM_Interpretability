@@ -142,7 +142,7 @@ def draw_circuit(
             positions[idx] = (pos, y)
 
     if figsize is None:
-        figsize = (max(8, n_pos * 1.6), max(5, n_y * 1.3))
+        figsize = (max(8, n_pos * 4), max(5, n_y * 1.3))
 
     fig, ax = plt.subplots(figsize=figsize)
 

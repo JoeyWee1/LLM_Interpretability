@@ -8,8 +8,8 @@ import gradio as gr
 from transformers import AutoTokenizer
 
 from circuit_tracer.graph import Graph, prune_graph
-from plotly_circuit import build_plotly_circuit
-from feature_fetch import fetch_feature, format_feature_html
+from Thesis.LLM_Interpretability.old.plotly_circuit import build_plotly_circuit
+from Thesis.LLM_Interpretability.old.feature_fetch import fetch_feature, format_feature_html
 
 
 def find_pt_files(graphs_dir: str) -> list[str]:
