@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Circuit Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <style>
+    :root {
+      --bg:           #0d1117;
+      --panel:        #161b22;
+      --border:       #21262d;
+      --border-hi:    #30363d;
+      --text:         #c9d1d9;
+      --text-dim:     #8b949e;
+      --text-bright:  #e6edf3;
+      --accent:       #58a6ff;
+      --accent-dim:   #1f6feb;
+      --col-feature:  #4C72B0;
+      --col-token:    #55A868;
+      --col-logit:    #C44E52;
+      --col-error:    #DD8452;
+      --col-pos-edge: #2166ac;
+      --col-neg-edge: #d6604d;
+      --left-w:       240px;
+      --right-w:      280px;
+      --header-h:     38px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    #header {
+      height: var(--header-h);
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 12px;
+    }
+
+    #header-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-bright);
+    }
+
+    #header-file {
+      font-size: 10px;
+      color: var(--accent);
+      margin-left: 8px;
+    }
+
+    #header-counts {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ── Main layout ── */
+    #main {
+      display: flex;
+      height: calc(100vh - var(--header-h));
+    }
+
+    /* ── Panels ── */
+    .panel {
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #panel-left  { width: var(--left-w);  border-right: 1px solid var(--border); }
+    #panel-right { width: var(--right-w); border-left:  1px solid var(--border); }
+
+    .section {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 7px;
+    }
+
+    /* ── Controls ── */
+    select {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border-hi);
+      padding: 5px 7px;
+      font-family: inherit;
+      font-size: 11px;
+      appearance: none;
+      cursor: pointer;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .file-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      min-height: 14px;
+    }
+
+    .btn-row { display: flex; gap: 5px; margin-top: 7px; }
+
+    button {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border-hi);
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      flex: 1;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    button:hover  { border-color: var(--accent); color: var(--accent); }
+    button:active { background: var(--border); }
+    button.icon   { flex: 0 0 28px; padding: 4px; }
+    button.primary { border-color: var(--accent-dim); color: var(--accent); }
+    button.primary:hover { background: var(--accent-dim); color: var(--text-bright); }
+
+    #status-text {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    /* ── Legend ── */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .legend-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .legend-line { width: 18px; height: 2px; flex-shrink: 0; }
+
+    /* ── Canvas ── */
+    #canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #cy {
+      width: 100%; height: 100%;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(33, 38, 45, 0.55) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(33, 38, 45, 0.55) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* ── Layer labels ── */
+    #layer-labels {
+      position: absolute;
+      left: 0; top: 0;
+      width: 0; height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .layer-label {
+      position: absolute;
+      left: 6px;
+      transform: translateY(-50%);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: var(--bg);
+      padding: 1px 5px;
+      border-left: 2px solid var(--border-hi);
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+
+    /* ── Empty state ── */
+    #empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      gap: 6px;
+    }
+
+    #empty-state .e-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    #empty-state .e-sub {
+      font-size: 10px;
+      color: var(--border-hi);
+    }
+
+    /* ── Inspector ── */
+    #inspector-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.8;
+      padding: 24px;
+    }
+
+    #inspector-content { display: none; flex-direction: column; }
+
+    .ntype-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid;
+    }
+
+    .irow {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .irow:last-child { border-bottom: none; }
+    .ikey { color: var(--text-dim); }
+    .ival { color: var(--text-bright); font-weight: 500; }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      background: var(--bg);
+      border: 1px solid var(--border-hi);
+      padding: 2px 6px;
+      font-size: 10px;
+      cursor: pointer;
+      color: var(--text-dim);
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .none-text { font-size: 10px; color: var(--border-hi); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <span id="header-title">Circuit Viewer</span>
+  <span id="header-file"></span>
+  <span id="header-counts"></span>
+</div>
+
+<div id="main">
+
+  <!-- Left panel -->
+  <div id="panel-left" class="panel">
+    <div class="section">
+      <div class="section-label">Graph File</div>
+      <select id="file-select">
+        <option value="">— loading files —</option>
+      </select>
+      <div class="file-meta" id="file-meta"></div>
+      <div class="btn-row">
+        <button class="primary" id="btn-load">Load</button>
+        <button id="btn-unload">Unload</button>
+        <button class="icon" id="btn-refresh" title="Refresh">↺</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Status</div>
+      <div id="status-text">No file loaded</div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Node Types</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--col-feature)"></div>Feature</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--col-token)"></div>Token</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--col-logit)"></div>Logit</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--col-error)"></div>Error</div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Edges</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--col-pos-edge)"></div>Positive effect</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--col-neg-edge)"></div>Negative effect</div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-wrap">
+    <div id="cy"></div>
+    <div id="layer-labels"></div>
+    <div id="empty-state">
+      <div class="e-title">No graph loaded</div>
+      <div class="e-sub">Select a .pt file and click Load</div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="panel-right" class="panel">
+    <div id="inspector-empty">Click a node<br>to inspect</div>
+    <div id="inspector-content"></div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
